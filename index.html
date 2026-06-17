@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Viaje a China 🇨🇳</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+  <!-- HEADER -->
+  <header>
+    <div class="header-content">
+      <div class="header-title">
+        <span class="flag">🇨🇳</span>
+        <div>
+          <h1>Viaje a China</h1>
+          <p class="header-subtitle">Organizador del Grupo · 9 Viajeros</p>
+        </div>
+      </div>
+      <div class="header-actions">
+        <button id="exportBtn" class="btn btn-outline">📤 Exportar</button>
+        <button id="importBtn" class="btn btn-outline">📥 Importar</button>
+        <input type="file" id="importFile" accept=".json" hidden>
+      </div>
+    </div>
+  </header>
+
+  <!-- NAVIGATION TABS -->
+  <nav class="tabs-nav">
+    <button class="tab-btn active" data-tab="itinerary">🗓️ Itinerario</button>
+    <button class="tab-btn" data-tab="flights">✈️ Vuelos</button>
+    <button class="tab-btn" data-tab="activities">🏛️ Actividades</button>
+    <button class="tab-btn" data-tab="expenses">💰 Gastos</button>
+  </nav>
+
+  <!-- MAIN CONTENT -->
+  <main class="main-content">
+
+    <!-- ========== ITINERARY TAB ========== -->
+    <section id="tab-itinerary" class="tab-content active">
+      <div class="section-header">
+        <h2>📅 Itinerario del Viaje</h2>
+        <button class="btn btn-primary" id="addDayBtn">+ Añadir Día</button>
+      </div>
+      <div id="itineraryList" class="card-list">
+        <div class="empty-state">
+          <span class="empty-icon">🗓️</span>
+          <p>No hay días añadidos todavía.</p>
+          <p>¡Empieza planificando tu viaje!</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ========== FLIGHTS TAB ========== -->
+    <section id="tab-flights" class="tab-content">
+      <div class="section-header">
+        <h2>✈️ Vuelos</h2>
+        <button class="btn btn-primary" id="addFlightBtn">+ Añadir Vuelo</button>
+      </div>
+      <div id="flightsList" class="card-list">
+        <div class="empty-state">
+          <span class="empty-icon">✈️</span>
+          <p>No hay vuelos registrados todavía.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ========== ACTIVITIES TAB ========== -->
+    <section id="tab-activities" class="tab-content">
+      <div class="section-header">
+        <h2>🏛️ Tours y Actividades</h2>
+        <button class="btn btn-primary" id="addActivityBtn">+ Añadir Actividad</button>
+      </div>
+      <div id="activitiesList" class="card-list">
+        <div class="empty-state">
+          <span class="empty-icon">🏛️</span>
+          <p>No hay actividades registradas todavía.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ========== EXPENSES TAB ========== -->
+    <section id="tab-expenses" class="tab-content">
+      <div class="section-header">
+        <h2>💰 Control de Gastos</h2>
+        <button class="btn btn-primary" id="addExpenseBtn">+ Añadir Gasto</button>
+      </div>
+
+      <!-- Expense Summary -->
+      <div class="expense-summary-card">
+        <h3>📊 Resumen por Persona</h3>
+        <div class="summary-scroll">
+          <table class="summary-table" id="expenseSummaryTable">
+            <thead>
+              <tr>
+                <th>Persona</th>
+                <th>Total Pagado</th>
+                <th>Parte que le Corresponde</th>
+                <th>Balance</th>
+              </tr>
+            </thead>
+            <tbody id="summaryTableBody">
+              <!-- Rendered by JS -->
+            </tbody>
+            <tfoot>
+              <tr class="summary-total-row">
+                <td><strong>TOTAL</strong></td>
+                <td id="summaryTotalPaid">0.00 €</td>
+                <td id="summaryTotalOwed">0.00 €</td>
+                <td>—</td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+        <p class="summary-note">
+          ✅ Balance positivo = te deben dinero &nbsp;|&nbsp; ❌ Balance negativo = debes dinero
+        </p>
+      </div>
+
+      <!-- Expense List -->
+      <div class="section-subheader">
+        <h3>📋 Lista de Gastos</h3>
+        <div class="expense-filter">
+          <label for="expenseFilterPerson">Filtrar por persona:</label>
+          <select id="expenseFilterPerson">
+            <option value="">Todos</option>
+          </select>
+        </div>
+      </div>
+      <div id="expensesList" class="card-list">
+        <div class="empty-state">
+          <span class="empty-icon">💰</span>
+          <p>No hay gastos registrados todavía.</p>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ======================================================
+       MODALS
+       ====================================================== -->
+
+  <!-- DAY MODAL -->
+  <div id="dayModal" class="modal-overlay" hidden>
+    <div class="modal">
+      <div class="modal-header">
+        <h3 id="dayModalTitle">Añadir Día</h3>
+        <button class="modal-close" data-modal="dayModal">✕</button>
+      </div>
+      <form id="dayForm" class="modal-form">
+        <input type="hidden" id="dayId">
+        <div class="form-row">
+          <div class="form-group">
+            <label for="dayDate">Fecha *</label>
+            <input type="date" id="dayDate" required>
+          </div>
+          <div class="form-group">
+            <label for="dayCity">Ciudad / Lugar *</label>
+            <input type="text" id="dayCity" placeholder="p.ej. Pekín" required>
+          </div>
+        </div>
+        <div class="form-group">
+          <label for="dayMorning">🌅 Mañana</label>
+          <textarea id="dayMorning" rows="2" placeholder="Actividades de la mañana..."></textarea>
+        </div>
+        <div class="form-group">
+          <label for="dayAfternoon">☀️ Tarde</label>
+          <textarea id="dayAfternoon" rows="2" placeholder="Actividades de la tarde..."></textarea>
+        </div>
+        <div class="form-group">
+          <label for="dayEvening">🌙 Noche</label>
+          <textarea id="dayEvening" rows="2" placeholder="Actividades de la noche..."></textarea>
+        </div>
+        <div class="form-group">
+          <label for="dayNotes">📝 Notas</label>
+          <textarea id="dayNotes" rows="2" placeholder="Notas adicionales..."></textarea>
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="btn btn-outline" data-modal="dayModal">Cancelar</button>
+          <button type="submit" class="btn btn-primary">Guardar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- FLIGHT MODAL -->
+  <div id="flightModal" class="modal-overlay" hidden>
+    <div class="modal">
+      <div class="modal-header">
+        <h3 id="flightModalTitle">Añadir Vuelo</h3>
+        <button class="modal-close" data-modal="flightModal">✕</button>
+      </div>
+      <form id="flightForm" class="modal-form">
+        <input type="hidden" id="flightId">
+        <div class="form-row">
+          <div class="form-group">
+            <label for="flightNumber">Número de Vuelo *</label>
+            <input type="text" id="flightNumber" placeholder="p.ej. IB6830" required>
+          </div>
+          <div class="form-group">
+            <label for="flightAirline">Aerolínea</label>
+            <input type="text" id="flightAirline" placeholder="p.ej. Iberia">
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label for="flightOrigin">Origen *</label>
+            <input type="text" id="flightOrigin" placeholder="p.ej. Madrid (MAD)" required>
+          </div>
+          <div class="form-group">
+            <label for="flightDestination">Destino *</label>
+            <input type="text" id="flightDestination" placeholder="p.ej. Pekín (PEK)" required>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label for="flightDate">Fecha *</label>
+            <input type="date" id="flightDate" required>
+          </div>
+          <div class="form-group">
+            <label for="flightDeparture">Hora Salida *</label>
+            <input type="time" id="flightDeparture" required>
+          </div>
+          <div class="form-group">
+            <label for="flightArrival">Hora Llegada *</label>
+            <input type="time" id="flightArrival" required>
+          </div>
+        </div>
+        <div class="form-group">
+          <label for="flightArrivalDate">Fecha Llegada (si es diferente)</label>
+          <input type="date" id="flightArrivalDate">
+        </div>
+        <div class="form-group">
+          <label for="flightNotes">📝 Notas</label>
+          <textarea id="flightNotes" rows="2" placeholder="Escala, información del terminal, equipaje..."></textarea>
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="btn btn-outline" data-modal="flightModal">Cancelar</button>
+          <button type="submit" class="btn btn-primary">Guardar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ACTIVITY MODAL -->
+  <div id="activityModal" class="modal-overlay" hidden>
+    <div class="modal">
+      <div class="modal-header">
+        <h3 id="activityModalTitle">Añadir Actividad</h3>
+        <button class="modal-close" data-modal="activityModal">✕</button>
+      </div>
+      <form id="activityForm" class="modal-form">
+        <input type="hidden" id="activityId">
+        <div class="form-group">
+          <label for="activityName">Nombre de la Actividad *</label>
+          <input type="text" id="activityName" placeholder="p.ej. Tour a la Gran Muralla" required>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label for="activityDate">Fecha</label>
+            <input type="date" id="activityDate">
+          </div>
+          <div class="form-group">
+            <label for="activityTime">Hora</label>
+            <input type="time" id="activityTime">
+          </div>
+          <div class="form-group">
+            <label for="activityDuration">Duración</label>
+            <input type="text" id="activityDuration" placeholder="p.ej. 4h">
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label for="activityLocation">Lugar</label>
+            <input type="text" id="activityLocation" placeholder="p.ej. Pekín">
+          </div>
+          <div class="form-group">
+            <label for="activityPrice">Precio por persona (€)</label>
+            <input type="number" id="activityPrice" min="0" step="0.01" placeholder="0.00">
+          </div>
+        </div>
+        <div class="form-group">
+          <label for="activityCategory">Categoría</label>
+          <select id="activityCategory">
+            <option value="tour">🚌 Tour</option>
+            <option value="museum">🏛️ Museo / Templo</option>
+            <option value="food">🍜 Gastronomía</option>
+            <option value="transport">🚆 Transporte</option>
+            <option value="hotel">🏨 Alojamiento</option>
+            <option value="shopping">🛍️ Compras</option>
+            <option value="other">📌 Otro</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Participantes</label>
+          <div class="participants-grid" id="activityParticipants">
+            <!-- Generated by JS -->
+          </div>
+        </div>
+        <div class="form-group">
+          <label for="activityDescription">Descripción</label>
+          <textarea id="activityDescription" rows="2" placeholder="Descripción de la actividad..."></textarea>
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="btn btn-outline" data-modal="activityModal">Cancelar</button>
+          <button type="submit" class="btn btn-primary">Guardar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- EXPENSE MODAL -->
+  <div id="expenseModal" class="modal-overlay" hidden>
+    <div class="modal">
+      <div class="modal-header">
+        <h3 id="expenseModalTitle">Añadir Gasto</h3>
+        <button class="modal-close" data-modal="expenseModal">✕</button>
+      </div>
+      <form id="expenseForm" class="modal-form">
+        <input type="hidden" id="expenseId">
+        <div class="form-group">
+          <label for="expenseDescription">Descripción *</label>
+          <input type="text" id="expenseDescription" placeholder="p.ej. Cena en restaurante Pekin Duck" required>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label for="expenseAmount">Importe (€) *</label>
+            <input type="number" id="expenseAmount" min="0.01" step="0.01" placeholder="0.00" required>
+          </div>
+          <div class="form-group">
+            <label for="expensePaidBy">Pagado por *</label>
+            <select id="expensePaidBy" required>
+              <option value="">Selecciona...</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label for="expenseDate">Fecha</label>
+            <input type="date" id="expenseDate">
+          </div>
+          <div class="form-group">
+            <label for="expenseCategory">Categoría</label>
+            <select id="expenseCategory">
+              <option value="food">🍜 Comida</option>
+              <option value="transport">🚆 Transporte</option>
+              <option value="accommodation">🏨 Alojamiento</option>
+              <option value="activities">🏛️ Actividades</option>
+              <option value="shopping">🛍️ Compras</option>
+              <option value="other">📌 Otro</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Dividir entre: *</label>
+          <div class="participants-select-all">
+            <button type="button" class="btn-link" id="selectAllParticipants">Seleccionar todos</button>
+            <button type="button" class="btn-link" id="deselectAllParticipants">Deseleccionar todos</button>
+          </div>
+          <div class="participants-grid" id="expenseParticipants">
+            <!-- Generated by JS -->
+          </div>
+          <p class="split-preview" id="splitPreview"></p>
+        </div>
+        <div class="form-group">
+          <label for="expenseNotes">Notas</label>
+          <textarea id="expenseNotes" rows="2" placeholder="Notas adicionales..."></textarea>
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="btn btn-outline" data-modal="expenseModal">Cancelar</button>
+          <button type="submit" class="btn btn-primary">Guardar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- DELETE CONFIRM MODAL -->
+  <div id="deleteModal" class="modal-overlay" hidden>
+    <div class="modal modal-small">
+      <div class="modal-header">
+        <h3>Confirmar Eliminación</h3>
+        <button class="modal-close" data-modal="deleteModal">✕</button>
+      </div>
+      <div class="modal-body">
+        <p>¿Estás seguro de que quieres eliminar este elemento?</p>
+        <p class="delete-item-name" id="deleteItemName"></p>
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-outline" data-modal="deleteModal">Cancelar</button>
+        <button class="btn btn-danger" id="confirmDeleteBtn">Eliminar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- TOAST NOTIFICATION -->
+  <div id="toast" class="toast" hidden></div>
+
+  <script src="js/app.js"></script>
+</body>
+</html>
