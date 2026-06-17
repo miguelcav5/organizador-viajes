@@ -28,10 +28,22 @@ jobs:
       - name: Setup Pages
         uses: actions/configure-pages@v5
 
+      - name: Prepare static site with cache-busting
+        run: |
+          rm -rf _site
+          mkdir -p _site
+          rsync -a \
+            --exclude '.git' \
+            --exclude '.github' \
+            ./ _site/
+
+          sed -i "s|href=\"css/style.css\"|href=\"css/style.css?v=${GITHUB_SHA}\"|g" _site/index.html
+          sed -i "s|src=\"js/app.js\"|src=\"js/app.js?v=${GITHUB_SHA}\"|g" _site/index.html
+
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: .
+          path: _site
 
       - name: Deploy to GitHub Pages
         id: deployment
