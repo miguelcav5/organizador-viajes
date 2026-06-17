@@ -10,6 +10,9 @@ const PEOPLE = ['Naxi', 'Michi', 'Rafa', 'Pato', 'Marisol', 'Laura', 'Gabri', 'S
 
 const STORAGE_KEY = 'china-trip-data-v1';
 
+// Threshold (in euros) below which a balance is treated as zero for display purposes
+const BALANCE_THRESHOLD = 0.005;
+
 const CATEGORY_ICONS = {
   tour:          '🚌',
   museum:        '🏛️',
@@ -48,7 +51,8 @@ let state = {
 function saveState() {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-  } catch {
+  } catch (err) {
+    console.error('Storage write error:', err);
     showToast('⚠️ No se pudo guardar. El almacenamiento local está lleno.');
   }
 }
@@ -60,7 +64,8 @@ function loadState() {
       const parsed = JSON.parse(raw);
       state = Object.assign({ itinerary: [], flights: [], activities: [], expenses: [] }, parsed);
     }
-  } catch {
+  } catch (err) {
+    console.error('Storage read error:', err);
     showToast('⚠️ Error al cargar los datos guardados.');
   }
 }
@@ -68,6 +73,9 @@ function loadState() {
 // ─── Utilities ───────────────────────────────────────────────────────────────
 
 function uid() {
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+    return crypto.randomUUID();
+  }
   return Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
 }
 
@@ -396,14 +404,15 @@ function buildParticipantsGrid(containerId, selected) {
     </label>`;
   }).join('');
 
-  container.querySelectorAll('.participant-chip').forEach((chip) => {
-    chip.addEventListener('click', () => {
-      const cb = chip.querySelector('input[type="checkbox"]');
-      cb.checked = !cb.checked;
-      chip.classList.toggle('selected', cb.checked);
-      if (containerId === 'expenseParticipants') updateSplitPreview();
-    });
-  });
+  // Use a single delegated listener on the container to avoid duplicate handlers
+  container.onclick = (e) => {
+    const chip = e.target.closest('.participant-chip');
+    if (!chip) return;
+    const cb = chip.querySelector('input[type="checkbox"]');
+    cb.checked = !cb.checked;
+    chip.classList.toggle('selected', cb.checked);
+    if (containerId === 'expenseParticipants') updateSplitPreview();
+  };
 }
 
 function getCheckedParticipants(containerId) {
@@ -609,8 +618,8 @@ function renderExpenseSummary() {
     totalPaid += paid;
     totalOwed += owed;
 
-    const balClass = balance > 0.005 ? 'balance-positive' : balance < -0.005 ? 'balance-negative' : 'balance-zero';
-    const balSign  = balance > 0.005 ? '+' : '';
+    const balClass = balance > BALANCE_THRESHOLD ? 'balance-positive' : balance < -BALANCE_THRESHOLD ? 'balance-negative' : 'balance-zero';
+    const balSign  = balance > BALANCE_THRESHOLD ? '+' : '';
 
     return `<tr>
       <td><strong>${esc(p)}</strong></td>
@@ -797,7 +806,8 @@ document.getElementById('importFile').addEventListener('change', (e) => {
       saveState();
       renderAll();
       showToast('📥 Datos importados correctamente');
-    } catch {
+    } catch (err) {
+      console.error('Import error:', err);
       showToast('❌ Error al importar el archivo. Asegúrate de que es un JSON válido.');
     }
   };
