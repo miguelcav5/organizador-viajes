@@ -103,33 +103,51 @@ function todayStr() {
 function showToast(msg, duration = 2800) {
   const el = document.getElementById('toast');
   el.textContent = msg;
-  el.hidden = false;
+  el.removeAttribute('hidden');
   clearTimeout(el._timer);
-  el._timer = setTimeout(() => { el.hidden = true; }, duration);
+  el._timer = setTimeout(() => { el.setAttribute('hidden', ''); }, duration);
 }
 
 // ─── Modal helpers ───────────────────────────────────────────────────────────
 
 function openModal(id) {
   const el = document.getElementById(id);
-  el.hidden = false;
-  document.body.style.overflow = 'hidden';
+  if (el) {
+    el.removeAttribute('hidden');
+    document.body.style.overflow = 'hidden';
+  }
 }
 
 function closeModal(id) {
   const el = document.getElementById(id);
-  el.hidden = true;
-  document.body.style.overflow = '';
+  if (el) {
+    el.setAttribute('hidden', '');
+    document.body.style.overflow = '';
+  }
 }
 
 // Close modals on overlay click or close button
 document.addEventListener('click', (e) => {
+  // Close on overlay click
   if (e.target.classList.contains('modal-overlay')) {
-    e.target.hidden = true;
+    e.target.setAttribute('hidden', '');
     document.body.style.overflow = '';
+    return;
   }
-  if (e.target.dataset.modal) {
+  
+  // Close on close button (✕)
+  if (e.target.classList.contains('modal-close')) {
+    const modalId = e.target.getAttribute('data-modal');
+    if (modalId) {
+      closeModal(modalId);
+    }
+    return;
+  }
+  
+  // Close on cancel button with data-modal attribute
+  if (e.target.dataset.modal && e.target.textContent.includes('Cancelar')) {
     closeModal(e.target.dataset.modal);
+    return;
   }
 });
 
