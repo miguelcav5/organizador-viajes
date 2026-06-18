@@ -135,8 +135,14 @@ function getSignInErrorMessage(err) {
   if (code === 'auth/operation-not-allowed') {
     return '❌ Google Sign-In no está habilitado en Firebase Authentication.';
   }
+  if (code === 'auth/popup-blocked') {
+    return '⚠️ El navegador bloqueó la ventana de acceso. Reintentando con redirección...';
+  }
   if (code === 'auth/popup-closed-by-user') {
     return '⚠️ Cerraste la ventana de Google antes de completar el acceso.';
+  }
+  if (code === 'auth/invalid-api-key' || code === 'auth/app-not-authorized') {
+    return '❌ Configuración de Firebase inválida. Revisa apiKey/authDomain/projectId.';
   }
   if (code === 'auth/network-request-failed') {
     return '⚠️ Error de red al iniciar sesión. Revisa tu conexión.';
@@ -151,14 +157,41 @@ function getSignInErrorMessage(err) {
 async function signInWithGoogle() {
   if (!auth) return;
   const provider = new firebase.auth.GoogleAuthProvider();
+  const isGithubPages = window.location.hostname.endsWith('github.io');
+  const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent || '');
+
+  // En GitHub Pages y móvil, redirect suele ser mucho más estable que popup.
+  if (isGithubPages || isMobile) {
+    await auth.signInWithRedirect(provider);
+    return;
+  }
+
   try {
     await auth.signInWithPopup(provider);
   } catch (err) {
-    if (err && err.code === 'auth/popup-blocked') {
+    const fallbackToRedirectCodes = new Set([
+      'auth/popup-blocked',
+      'auth/popup-closed-by-user',
+      'auth/cancelled-popup-request',
+      'auth/web-storage-unsupported',
+      'auth/operation-not-supported-in-this-environment',
+    ]);
+
+    if (err && fallbackToRedirectCodes.has(err.code)) {
       await auth.signInWithRedirect(provider);
       return;
     }
     console.error('Google sign-in error:', err);
+    showToast(getSignInErrorMessage(err));
+  }
+}
+
+async function processRedirectResult() {
+  if (!auth) return;
+  try {
+    await auth.getRedirectResult();
+  } catch (err) {
+    console.error('Redirect sign-in error:', err);
     showToast(getSignInErrorMessage(err));
   }
 }
@@ -1178,6 +1211,8 @@ async function init() {
     setAppVisibility(false);
     return;
   }
+
+  await processRedirectResult();
 
   bindAuthStateListener();
 }
