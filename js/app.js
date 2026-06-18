@@ -160,13 +160,13 @@ async function signInWithGoogle() {
   const isGithubPages = window.location.hostname.endsWith('github.io');
   const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent || '');
 
-  // En GitHub Pages y móvil, redirect suele ser mucho más estable que popup.
-  if (isGithubPages || isMobile) {
-    await auth.signInWithRedirect(provider);
-    return;
-  }
-
   try {
+    // En GitHub Pages y móvil, redirect suele ser mucho más estable que popup.
+    if (isGithubPages || isMobile) {
+      await auth.signInWithRedirect(provider);
+      return;
+    }
+
     await auth.signInWithPopup(provider);
   } catch (err) {
     const fallbackToRedirectCodes = new Set([
@@ -178,9 +178,16 @@ async function signInWithGoogle() {
     ]);
 
     if (err && fallbackToRedirectCodes.has(err.code)) {
-      await auth.signInWithRedirect(provider);
-      return;
+      try {
+        await auth.signInWithRedirect(provider);
+        return;
+      } catch (redirectErr) {
+        console.error('Google redirect sign-in error:', redirectErr);
+        showToast(getSignInErrorMessage(redirectErr));
+        return;
+      }
     }
+
     console.error('Google sign-in error:', err);
     showToast(getSignInErrorMessage(err));
   }
