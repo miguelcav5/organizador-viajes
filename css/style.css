@@ -86,6 +86,21 @@ header h1 {
 
 .header-actions { display: flex; gap: .5rem; flex-wrap: wrap; }
 
+.user-email-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: .45rem .75rem;
+  border-radius: 999px;
+  border: 1px solid rgba(255,255,255,.45);
+  background: rgba(255,255,255,.14);
+  color: #fff;
+  font-size: .8rem;
+  max-width: 260px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 /* ---------- Tabs Navigation ---------- */
 .tabs-nav {
   background: #fff;
@@ -129,6 +144,31 @@ header h1 {
   max-width: 1100px;
   margin: 0 auto;
   padding: 1.5rem 1rem 3rem;
+}
+
+.auth-gate {
+  max-width: 720px;
+  margin: 2.25rem auto 0;
+  padding: 0 1rem;
+}
+
+.auth-gate-card {
+  border: 1px solid var(--border);
+  background: #fff;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  padding: 1.25rem;
+  text-align: center;
+}
+
+.auth-gate-card h2 {
+  font-size: 1.25rem;
+  margin-bottom: .5rem;
+}
+
+.auth-gate-card p {
+  color: var(--text-muted);
+  margin-bottom: 1rem;
 }
 
 .tab-content { display: none; }

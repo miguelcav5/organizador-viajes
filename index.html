@@ -19,6 +19,9 @@
         </div>
       </div>
       <div class="header-actions">
+        <span id="userEmail" class="user-email-pill" title="Cuenta actual">Sin sesión</span>
+        <button id="loginBtn" class="btn btn-outline">🔐 Entrar con Google</button>
+        <button id="logoutBtn" class="btn btn-outline" hidden>Salir</button>
         <button id="exportBtn" class="btn btn-outline">📤 Exportar</button>
         <button id="importBtn" class="btn btn-outline">📥 Importar</button>
         <input type="file" id="importFile" accept=".json" hidden>
@@ -27,15 +30,23 @@
   </header>
 
   <!-- NAVIGATION TABS -->
-  <nav class="tabs-nav">
+  <nav id="mainTabs" class="tabs-nav" hidden>
     <button class="tab-btn active" data-tab="itinerary">🗓️ Itinerario</button>
     <button class="tab-btn" data-tab="flights">✈️ Vuelos</button>
     <button class="tab-btn" data-tab="activities">🏛️ Actividades</button>
     <button class="tab-btn" data-tab="expenses">💰 Gastos</button>
   </nav>
 
+  <section id="authGate" class="auth-gate">
+    <div class="auth-gate-card">
+      <h2 id="authGateTitle">🔐 Acceso privado</h2>
+      <p id="authGateMessage">Inicia sesión con Google para acceder al organizador del viaje.</p>
+      <button id="loginGateBtn" class="btn btn-primary">Entrar con Google</button>
+    </div>
+  </section>
+
   <!-- MAIN CONTENT -->
-  <main class="main-content">
+  <main id="appMain" class="main-content" hidden>
 
     <!-- ========== ITINERARY TAB ========== -->
     <section id="tab-itinerary" class="tab-content active">
@@ -398,6 +409,7 @@
   <div id="toast" class="toast" hidden></div>
 
   <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore-compat.js"></script>
   <script>
     // Rellena esta configuración desde Firebase Console para activar sincronización en tiempo real.
@@ -412,6 +424,12 @@
 
     // Usa el mismo identificador de viaje en todos los dispositivos.
     window.TRIP_ID = 'china-2026';
+
+    // Lista de emails autorizados para entrar en la app.
+    window.TRIP_ALLOWED_EMAILS = [
+      'tu-email@gmail.com',
+      'amigo1@gmail.com',
+    ];
   </script>
   <script src="js/app.js"></script>
 </body>

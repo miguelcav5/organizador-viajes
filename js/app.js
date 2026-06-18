@@ -47,10 +47,19 @@ let state = {
 };
 
 let db = null;
+let auth = null;
 let tripDocRef = null;
 let remoteSyncEnabled = false;
 let remoteUnsubscribe = null;
 let isApplyingRemoteState = false;
+let isAuthorizedUser = false;
+let initializedForUid = null;
+
+const ALLOWED_EMAILS = new Set(
+  (window.TRIP_ALLOWED_EMAILS || [])
+    .map((email) => String(email || '').trim().toLowerCase())
+    .filter(Boolean)
+);
 
 function defaultState() {
   return { itinerary: [], flights: [], activities: [], expenses: [] };
@@ -58,6 +67,87 @@ function defaultState() {
 
 function normalizeState(raw) {
   return Object.assign(defaultState(), raw || {});
+}
+
+function normalizeEmail(value) {
+  return String(value || '').trim().toLowerCase();
+}
+
+function isUserAllowed(user) {
+  if (!user || !user.email) return false;
+  const email = normalizeEmail(user.email);
+  if (ALLOWED_EMAILS.size === 0) {
+    return false;
+  }
+  return ALLOWED_EMAILS.has(email);
+}
+
+function setAuthGate(title, message) {
+  const titleEl = document.getElementById('authGateTitle');
+  const messageEl = document.getElementById('authGateMessage');
+  if (titleEl) titleEl.textContent = title;
+  if (messageEl) messageEl.textContent = message;
+}
+
+function setAppVisibility(visible) {
+  const tabs = document.getElementById('mainTabs');
+  const main = document.getElementById('appMain');
+  const gate = document.getElementById('authGate');
+  const exportBtn = document.getElementById('exportBtn');
+  const importBtn = document.getElementById('importBtn');
+
+  if (visible) {
+    tabs && tabs.removeAttribute('hidden');
+    main && main.removeAttribute('hidden');
+    gate && gate.setAttribute('hidden', '');
+  } else {
+    tabs && tabs.setAttribute('hidden', '');
+    main && main.setAttribute('hidden', '');
+    gate && gate.removeAttribute('hidden');
+  }
+
+  if (exportBtn) exportBtn.disabled = !visible;
+  if (importBtn) importBtn.disabled = !visible;
+}
+
+function updateAuthHeader(user) {
+  const emailEl = document.getElementById('userEmail');
+  const loginBtn = document.getElementById('loginBtn');
+  const logoutBtn = document.getElementById('logoutBtn');
+  const email = user && user.email ? user.email : 'Sin sesión';
+
+  if (emailEl) {
+    emailEl.textContent = email;
+    emailEl.title = email;
+  }
+
+  if (loginBtn) loginBtn.toggleAttribute('hidden', !!user);
+  if (logoutBtn) logoutBtn.toggleAttribute('hidden', !user);
+}
+
+async function signInWithGoogle() {
+  if (!auth) return;
+  const provider = new firebase.auth.GoogleAuthProvider();
+  try {
+    await auth.signInWithPopup(provider);
+  } catch (err) {
+    if (err && err.code === 'auth/popup-blocked') {
+      await auth.signInWithRedirect(provider);
+      return;
+    }
+    console.error('Google sign-in error:', err);
+    showToast('❌ No se pudo iniciar sesión con Google.');
+  }
+}
+
+async function signOutCurrentUser() {
+  if (!auth) return;
+  try {
+    await auth.signOut();
+  } catch (err) {
+    console.error('Sign-out error:', err);
+    showToast('⚠️ No se pudo cerrar la sesión.');
+  }
 }
 
 // ─── Persistence ─────────────────────────────────────────────────────────────
@@ -87,7 +177,7 @@ function loadStateLocal() {
 function saveState() {
   saveStateLocal();
 
-  if (!remoteSyncEnabled || !tripDocRef || isApplyingRemoteState) {
+  if (!isAuthorizedUser || !remoteSyncEnabled || !tripDocRef || isApplyingRemoteState) {
     return;
   }
 
@@ -123,6 +213,7 @@ async function initRemoteSync() {
     if (!firebase.apps.length) {
       firebase.initializeApp(config);
     }
+    auth = firebase.auth();
     db = firebase.firestore();
     tripDocRef = db.collection('trips').doc(tripId);
     remoteSyncEnabled = true;
@@ -136,7 +227,7 @@ async function initRemoteSync() {
 async function loadState() {
   loadStateLocal();
 
-  if (!remoteSyncEnabled || !tripDocRef) {
+  if (!isAuthorizedUser || !remoteSyncEnabled || !tripDocRef) {
     return;
   }
 
@@ -161,7 +252,7 @@ async function loadState() {
 }
 
 function subscribeRemoteState() {
-  if (!remoteSyncEnabled || !tripDocRef) {
+  if (!isAuthorizedUser || !remoteSyncEnabled || !tripDocRef) {
     return;
   }
 
@@ -944,7 +1035,7 @@ document.getElementById('importFile').addEventListener('change', (e) => {
     try {
       const parsed = JSON.parse(evt.target.result);
       if (typeof parsed !== 'object' || parsed === null) throw new Error('Invalid format');
-      state = Object.assign({ itinerary: [], flights: [], activities: [], expenses: [] }, parsed);
+      state = normalizeState(parsed);
       saveState();
       renderAll();
       showToast('📥 Datos importados correctamente');
@@ -969,17 +1060,103 @@ function renderAll() {
 
 // ─── INIT ────────────────────────────────────────────────────────────────────
 
-async function init() {
+async function bootstrapAuthorizedSession(user) {
+  if (initializedForUid === user.uid) {
+    return;
+  }
+
+  if (remoteUnsubscribe) {
+    remoteUnsubscribe();
+    remoteUnsubscribe = null;
+  }
+
+  initializedForUid = user.uid;
   await initRemoteSync();
   await loadState();
-  populatePaidBySelect();
-  populateFilterSelect();
   renderAll();
 
   if (remoteSyncEnabled) {
     subscribeRemoteState();
     showToast('☁️ Sincronización en tiempo real activada');
   }
+}
+
+function bindAuthButtons() {
+  const loginBtn = document.getElementById('loginBtn');
+  const loginGateBtn = document.getElementById('loginGateBtn');
+  const logoutBtn = document.getElementById('logoutBtn');
+
+  if (loginBtn) {
+    loginBtn.addEventListener('click', signInWithGoogle);
+  }
+  if (loginGateBtn) {
+    loginGateBtn.addEventListener('click', signInWithGoogle);
+  }
+  if (logoutBtn) {
+    logoutBtn.addEventListener('click', signOutCurrentUser);
+  }
+}
+
+function bindAuthStateListener() {
+  if (!auth || !auth.onAuthStateChanged) {
+    setAuthGate('⚠️ Error de configuración', 'No se pudo iniciar Firebase Auth. Revisa la configuración de Firebase en index.html.');
+    setAppVisibility(false);
+    return;
+  }
+
+  auth.onAuthStateChanged(async (user) => {
+    updateAuthHeader(user);
+
+    if (!user) {
+      isAuthorizedUser = false;
+      initializedForUid = null;
+      if (remoteUnsubscribe) {
+        remoteUnsubscribe();
+        remoteUnsubscribe = null;
+      }
+      setAuthGate('🔐 Acceso privado', 'Inicia sesión con una cuenta de Google autorizada para acceder al viaje.');
+      setAppVisibility(false);
+      return;
+    }
+
+    if (!isUserAllowed(user)) {
+      isAuthorizedUser = false;
+      initializedForUid = null;
+      if (remoteUnsubscribe) {
+        remoteUnsubscribe();
+        remoteUnsubscribe = null;
+      }
+      setAuthGate('⛔ Cuenta no autorizada', `La cuenta ${user.email} no está permitida. Cierra sesión e inicia con un email autorizado.`);
+      setAppVisibility(false);
+      return;
+    }
+
+    isAuthorizedUser = true;
+    setAppVisibility(true);
+    await bootstrapAuthorizedSession(user);
+  });
+}
+
+async function init() {
+  populatePaidBySelect();
+  populateFilterSelect();
+  bindAuthButtons();
+
+  await initRemoteSync();
+
+  if (!auth) {
+    setAuthGate('⚠️ Error de configuración', 'No se pudo iniciar Firebase Auth. Revisa la configuración de Firebase en index.html.');
+    setAppVisibility(false);
+    return;
+  }
+
+  if (ALLOWED_EMAILS.size === 0) {
+    setAuthGate('⚠️ Falta configuración', 'Añade emails permitidos en window.TRIP_ALLOWED_EMAILS dentro de index.html.');
+    setAppVisibility(false);
+    return;
+  }
+
+  bindAuthStateListener();
 }
 
 init();
