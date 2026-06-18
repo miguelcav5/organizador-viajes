@@ -46,9 +46,23 @@ let state = {
   expenses:   [],   // [{id, description, amount, paidBy, date, category, participants, notes}]
 };
 
+let db = null;
+let tripDocRef = null;
+let remoteSyncEnabled = false;
+let remoteUnsubscribe = null;
+let isApplyingRemoteState = false;
+
+function defaultState() {
+  return { itinerary: [], flights: [], activities: [], expenses: [] };
+}
+
+function normalizeState(raw) {
+  return Object.assign(defaultState(), raw || {});
+}
+
 // ─── Persistence ─────────────────────────────────────────────────────────────
 
-function saveState() {
+function saveStateLocal() {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
   } catch (err) {
@@ -57,17 +71,127 @@ function saveState() {
   }
 }
 
-function loadState() {
+function loadStateLocal() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) {
       const parsed = JSON.parse(raw);
-      state = Object.assign({ itinerary: [], flights: [], activities: [], expenses: [] }, parsed);
+      state = normalizeState(parsed);
     }
   } catch (err) {
     console.error('Storage read error:', err);
     showToast('⚠️ Error al cargar los datos guardados.');
   }
+}
+
+function saveState() {
+  saveStateLocal();
+
+  if (!remoteSyncEnabled || !tripDocRef || isApplyingRemoteState) {
+    return;
+  }
+
+  tripDocRef
+    .set(
+      {
+        state,
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+      },
+      { merge: true }
+    )
+    .catch((err) => {
+      console.error('Firestore write error:', err);
+      showToast('⚠️ No se pudo sincronizar en la nube. Se guardó localmente.');
+    });
+}
+
+async function initRemoteSync() {
+  const config = window.TRIP_FIREBASE_CONFIG;
+  const tripId = (window.TRIP_ID || '').trim();
+
+  if (!config || !config.apiKey || !config.projectId || !tripId) {
+    return;
+  }
+
+  if (typeof firebase === 'undefined' || !firebase.initializeApp) {
+    console.error('Firebase SDK no está disponible.');
+    showToast('⚠️ Firebase no cargó. Usando modo local.');
+    return;
+  }
+
+  try {
+    if (!firebase.apps.length) {
+      firebase.initializeApp(config);
+    }
+    db = firebase.firestore();
+    tripDocRef = db.collection('trips').doc(tripId);
+    remoteSyncEnabled = true;
+  } catch (err) {
+    console.error('Firebase init error:', err);
+    remoteSyncEnabled = false;
+    showToast('⚠️ Error de Firebase. Usando modo local.');
+  }
+}
+
+async function loadState() {
+  loadStateLocal();
+
+  if (!remoteSyncEnabled || !tripDocRef) {
+    return;
+  }
+
+  try {
+    const snap = await tripDocRef.get();
+    if (snap.exists && snap.data() && snap.data().state) {
+      state = normalizeState(snap.data().state);
+      saveStateLocal();
+    } else {
+      await tripDocRef.set(
+        {
+          state,
+          updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+        },
+        { merge: true }
+      );
+    }
+  } catch (err) {
+    console.error('Firestore read error:', err);
+    showToast('⚠️ No se pudo leer la nube. Mostrando datos locales.');
+  }
+}
+
+function subscribeRemoteState() {
+  if (!remoteSyncEnabled || !tripDocRef) {
+    return;
+  }
+
+  if (remoteUnsubscribe) {
+    remoteUnsubscribe();
+  }
+
+  remoteUnsubscribe = tripDocRef.onSnapshot(
+    (snap) => {
+      if (!snap.exists) return;
+      const data = snap.data();
+      if (!data || !data.state) return;
+
+      const incoming = normalizeState(data.state);
+      if (JSON.stringify(incoming) === JSON.stringify(state)) {
+        return;
+      }
+
+      isApplyingRemoteState = true;
+      state = incoming;
+      saveStateLocal();
+      renderAll();
+      isApplyingRemoteState = false;
+      showToast('🔄 Datos sincronizados');
+    },
+    (err) => {
+      console.error('Firestore realtime error:', err);
+      showToast('⚠️ Sin conexión en tiempo real.');
+    }
+  );
 }
 
 // ─── Utilities ───────────────────────────────────────────────────────────────
@@ -845,11 +969,17 @@ function renderAll() {
 
 // ─── INIT ────────────────────────────────────────────────────────────────────
 
-function init() {
-  loadState();
+async function init() {
+  await initRemoteSync();
+  await loadState();
   populatePaidBySelect();
   populateFilterSelect();
   renderAll();
+
+  if (remoteSyncEnabled) {
+    subscribeRemoteState();
+    showToast('☁️ Sincronización en tiempo real activada');
+  }
 }
 
 init();

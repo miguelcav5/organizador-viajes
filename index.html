@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Viaje a China 🇨🇳</title>
+  <title>Viaje a China 🇨hinchonchin</title>
   <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
@@ -397,6 +397,22 @@
   <!-- TOAST NOTIFICATION -->
   <div id="toast" class="toast" hidden></div>
 
+  <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore-compat.js"></script>
+  <script>
+    // Rellena esta configuración desde Firebase Console para activar sincronización en tiempo real.
+    window.TRIP_FIREBASE_CONFIG = {
+      apiKey: 'AlzaSyC_YiumsmsSUbts4o6Hk4hR0I2RKL_wG58',
+      authDomain: 'organizador-viajes.firebaseapp.com',
+      projectId: 'organizador-viajes',
+      storageBucket: 'organizador-viajes.firebasestorage.app',
+      messagingSenderId: '996784648046',
+      appId: '1:996784648046:web:19dc10d700d355dff89b7f',
+    };
+
+    // Usa el mismo identificador de viaje en todos los dispositivos.
+    window.TRIP_ID = 'china-2026';
+  </script>
   <script src="js/app.js"></script>
 </body>
 </html>
