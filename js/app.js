@@ -499,8 +499,8 @@ function renderFlights() {
   if (sorted.length === 0) {
     list.innerHTML = `
       <div class="empty-state">
-        <span class="empty-icon">✈️</span>
-        <p>No hay vuelos registrados todavía.</p>
+        <span class="empty-icon">🚆</span>
+        <p>No hay transportes registrados todavía.</p>
       </div>`;
     return;
   }
@@ -515,7 +515,7 @@ function renderFlights() {
           </div>
           <div class="flight-arrow">
             <div class="flight-arrow-line"></div>
-            <div class="flight-arrow-plane">✈️</div>
+            <div class="flight-arrow-plane">🚆</div>
             <div class="flight-number-badge">${esc(fl.flightNumber || '')}</div>
           </div>
           <div class="flight-airport">
@@ -543,11 +543,11 @@ function renderFlights() {
   list.querySelectorAll('.delete-flight-btn').forEach((btn) => {
     btn.addEventListener('click', () => {
       const fl = state.flights.find((f) => f.id === btn.dataset.id);
-      confirmDelete(`Vuelo ${fl?.flightNumber || ''} ${fl?.origin || ''}→${fl?.destination || ''}`, () => {
+      confirmDelete(`Transporte ${fl?.flightNumber || ''} ${fl?.origin || ''}→${fl?.destination || ''}`, () => {
         state.flights = state.flights.filter((f) => f.id !== btn.dataset.id);
         saveState();
         renderFlights();
-        showToast('✅ Vuelo eliminado');
+        showToast('✅ Transporte eliminado');
       });
     });
   });
@@ -557,12 +557,12 @@ function openFlightModal(id) {
   const form = document.getElementById('flightForm');
   form.reset();
   document.getElementById('flightId').value = '';
-  document.getElementById('flightModalTitle').textContent = 'Añadir Vuelo';
+  document.getElementById('flightModalTitle').textContent = 'Añadir Transporte';
 
   if (id) {
     const fl = state.flights.find((f) => f.id === id);
     if (!fl) return;
-    document.getElementById('flightModalTitle').textContent = 'Editar Vuelo';
+    document.getElementById('flightModalTitle').textContent = 'Editar Transporte';
     document.getElementById('flightId').value = fl.id;
     document.getElementById('flightNumber').value = fl.flightNumber || '';
     document.getElementById('flightAirline').value = fl.airline || '';
@@ -605,7 +605,7 @@ document.getElementById('flightForm').addEventListener('submit', (e) => {
   saveState();
   renderFlights();
   closeModal('flightModal');
-  showToast(existing >= 0 ? '✅ Vuelo actualizado' : '✅ Vuelo añadido');
+  showToast(existing >= 0 ? '✅ Transporte actualizado' : '✅ Transporte añadido');
 });
 
 // ─── ACTIVITIES ──────────────────────────────────────────────────────────────
