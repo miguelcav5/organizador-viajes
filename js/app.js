@@ -125,6 +125,29 @@ function updateAuthHeader(user) {
   if (logoutBtn) logoutBtn.toggleAttribute('hidden', !user);
 }
 
+function getSignInErrorMessage(err) {
+  const code = err && err.code ? err.code : '';
+  const host = window.location.hostname || 'este dominio';
+
+  if (code === 'auth/unauthorized-domain') {
+    return `❌ Dominio no autorizado en Firebase Auth: ${host}`;
+  }
+  if (code === 'auth/operation-not-allowed') {
+    return '❌ Google Sign-In no está habilitado en Firebase Authentication.';
+  }
+  if (code === 'auth/popup-closed-by-user') {
+    return '⚠️ Cerraste la ventana de Google antes de completar el acceso.';
+  }
+  if (code === 'auth/network-request-failed') {
+    return '⚠️ Error de red al iniciar sesión. Revisa tu conexión.';
+  }
+  if (code === 'auth/cancelled-popup-request') {
+    return '⚠️ Se canceló la solicitud de acceso. Inténtalo de nuevo.';
+  }
+
+  return '❌ No se pudo iniciar sesión con Google.';
+}
+
 async function signInWithGoogle() {
   if (!auth) return;
   const provider = new firebase.auth.GoogleAuthProvider();
@@ -136,7 +159,7 @@ async function signInWithGoogle() {
       return;
     }
     console.error('Google sign-in error:', err);
-    showToast('❌ No se pudo iniciar sesión con Google.');
+    showToast(getSignInErrorMessage(err));
   }
 }
 
