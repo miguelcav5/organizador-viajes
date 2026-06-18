@@ -1,15 +1,16 @@
 # organizador-viajes
 
-Organizador de viaje con sincronización en tiempo real entre dispositivos usando Firebase Firestore y acceso por contraseña compartida.
+Organizador de viaje con sincronización en tiempo real entre dispositivos usando Firebase Firestore y acceso con un único usuario compartido de Firebase Authentication.
 
-## Activar sincronización en tiempo real
+## Configuración recomendada
 
 1. Crea un proyecto en Firebase Console.
 2. Añade una app Web al proyecto y copia la configuración de Firebase.
-3. Activa Firestore Database.
-4. Edita [index.html](index.html) y completa los campos de `window.TRIP_FIREBASE_CONFIG`.
-5. En [index.html](index.html), deja el mismo valor de `window.TRIP_ID` en todos los dispositivos para compartir el mismo viaje.
-6. En [index.html](index.html), define `window.TRIP_SHARED_PASSWORD` con una clave compartida por el grupo.
+3. Activa Authentication y habilita el proveedor Email/Password.
+4. Crea un único usuario compartido en Authentication con el email y la contraseña que vais a usar entre amigos.
+5. Activa Firestore Database.
+6. Edita [index.html](index.html) y completa `window.TRIP_FIREBASE_CONFIG`.
+7. En [index.html](index.html), deja el mismo valor de `window.TRIP_ID` en todos los dispositivos para compartir el mismo viaje.
 
 Ejemplo de configuración:
 
@@ -25,32 +26,32 @@ Ejemplo de configuración:
 	};
 
 	window.TRIP_ID = 'china-2026';
-
-	window.TRIP_SHARED_PASSWORD = 'cambia-esta-clave';
 </script>
 ```
 
-## Reglas de Firestore para este modo (sin login)
+## Reglas de Firestore
 
-Para que la sincronización funcione sin autenticación, las reglas deben permitir acceso abierto al documento del viaje.
+Usa reglas cerradas para exigir que el usuario esté autenticado.
 
 ```txt
 rules_version = '2';
 service cloud.firestore {
 	match /databases/{database}/documents {
 		match /trips/{tripId} {
-			allow read, write: if true;
+			allow read, write: if request.auth != null;
 		}
 	}
 }
 ```
 
-## Comportamiento de acceso
+## Cómo funciona el acceso
 
-- Si no introduces la contraseña compartida, la app no muestra el contenido.
-- Si la contraseña es correcta, se habilita la app y sincroniza en tiempo real.
+- La app muestra una pantalla de login con email y contraseña.
+- Solo después de autenticarse con Firebase se carga el viaje y se activa la sincronización en tiempo real.
+- La sesión queda gestionada por Firebase y puede cerrarse desde la propia app.
 
-## Nota de seguridad
+## Ventaja de este enfoque
 
-- Este modo es sencillo pero débil: la contraseña solo se valida en el navegador.
-- Si necesitas seguridad real, usa autenticación de Firebase y reglas cerradas por usuario.
+- La contraseña ya no está publicada en el HTML o en el JavaScript.
+- GitHub Pages puede seguir alojando la app sin exponer el secreto.
+- Firestore queda protegido por reglas de autenticación reales, no por una validación local del navegador.

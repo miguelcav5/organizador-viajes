@@ -47,15 +47,13 @@ let state = {
 };
 
 let db = null;
+let auth = null;
 let tripDocRef = null;
 let remoteSyncEnabled = false;
 let remoteUnsubscribe = null;
 let isApplyingRemoteState = false;
 let isAuthorizedUser = false;
 let initializedForUid = null;
-
-const SHARED_PASSWORD_KEY = 'trip-shared-password-unlocked-v1';
-const SHARED_PASSWORD = String(window.TRIP_SHARED_PASSWORD || '').trim();
 
 function defaultState() {
   return { itinerary: [], flights: [], activities: [], expenses: [] };
@@ -93,45 +91,91 @@ function setAppVisibility(visible) {
   if (importBtn) importBtn.disabled = !visible;
 }
 
-function unlockWithSharedPassword() {
-  const input = document.getElementById('sharedPasswordInput');
-  const entered = String(input?.value || '');
+function updateSessionUi(user) {
+  const pill = document.getElementById('currentUserPill');
+  const signOutBtn = document.getElementById('signOutBtn');
 
-  if (!SHARED_PASSWORD) {
-    setAuthGate('⚠️ Falta configuración', 'Define window.TRIP_SHARED_PASSWORD en index.html para usar el acceso con contraseña.');
+  if (user) {
+    if (pill) {
+      pill.textContent = user.email || 'Usuario compartido';
+      pill.removeAttribute('hidden');
+    }
+    signOutBtn && signOutBtn.removeAttribute('hidden');
+    return;
+  }
+
+  if (pill) {
+    pill.textContent = '';
+    pill.setAttribute('hidden', '');
+  }
+  signOutBtn && signOutBtn.setAttribute('hidden', '');
+}
+
+async function signInWithSharedUser() {
+  const emailInput = document.getElementById('sharedUserEmailInput');
+  const passwordInput = document.getElementById('sharedUserPasswordInput');
+  const email = String(emailInput?.value || '').trim();
+  const password = String(passwordInput?.value || '');
+
+  if (!auth) {
+    setAuthGate('⚠️ Falta configuración', 'Firebase Auth no está disponible. Revisa la configuración del proyecto.');
     setAppVisibility(false);
     return;
   }
 
-  if (entered !== SHARED_PASSWORD) {
-    showToast('❌ Contraseña incorrecta');
+  if (!email || !password) {
+    showToast('⚠️ Introduce email y contraseña');
     return;
   }
 
-  isAuthorizedUser = true;
-  sessionStorage.setItem(SHARED_PASSWORD_KEY, '1');
-  setAppVisibility(true);
-  bootstrapAuthorizedSession();
-  if (input) input.value = '';
-  showToast('✅ Acceso concedido');
+  try {
+    await auth.signInWithEmailAndPassword(email, password);
+    if (passwordInput) passwordInput.value = '';
+  } catch (err) {
+    console.error('Firebase Auth sign-in error:', err);
+    showToast('❌ No se pudo iniciar sesión');
+  }
+}
+
+async function signOutCurrentUser() {
+  if (!auth) {
+    return;
+  }
+
+  try {
+    await auth.signOut();
+    showToast('✅ Sesión cerrada');
+  } catch (err) {
+    console.error('Firebase Auth sign-out error:', err);
+    showToast('⚠️ No se pudo cerrar la sesión');
+  }
 }
 
 function bindPasswordGate() {
   const btn = document.getElementById('unlockAppBtn');
-  const input = document.getElementById('sharedPasswordInput');
+  const emailInput = document.getElementById('sharedUserEmailInput');
+  const passwordInput = document.getElementById('sharedUserPasswordInput');
 
   if (btn) {
-    btn.addEventListener('click', unlockWithSharedPassword);
+    btn.addEventListener('click', () => {
+      signInWithSharedUser();
+    });
   }
 
-  if (input) {
+  [emailInput, passwordInput].forEach((input) => {
+    if (!input) return;
     input.addEventListener('keydown', (e) => {
       if (e.key === 'Enter') {
         e.preventDefault();
-        unlockWithSharedPassword();
+        signInWithSharedUser();
       }
     });
-  }
+  });
+}
+
+function bindAuthActions() {
+  const signOutBtn = document.getElementById('signOutBtn');
+  signOutBtn?.addEventListener('click', signOutCurrentUser);
 }
 
 // ─── Persistence ─────────────────────────────────────────────────────────────
@@ -197,6 +241,7 @@ async function initRemoteSync() {
     if (!firebase.apps.length) {
       firebase.initializeApp(config);
     }
+    auth = firebase.auth();
     db = firebase.firestore();
     tripDocRef = db.collection('trips').doc(tripId);
     remoteSyncEnabled = true;
@@ -1117,7 +1162,12 @@ function renderAll() {
 // ─── INIT ────────────────────────────────────────────────────────────────────
 
 async function bootstrapAuthorizedSession() {
-  if (initializedForUid === 'shared-password') {
+  const currentUser = auth?.currentUser;
+  if (!currentUser) {
+    return;
+  }
+
+  if (initializedForUid === currentUser.uid) {
     return;
   }
 
@@ -1126,7 +1176,7 @@ async function bootstrapAuthorizedSession() {
     remoteUnsubscribe = null;
   }
 
-  initializedForUid = 'shared-password';
+  initializedForUid = currentUser.uid;
   await loadState();
   renderAll();
 
@@ -1136,27 +1186,56 @@ async function bootstrapAuthorizedSession() {
   }
 }
 
+function resetAuthorizedSession() {
+  isAuthorizedUser = false;
+  initializedForUid = null;
+
+  if (remoteUnsubscribe) {
+    remoteUnsubscribe();
+    remoteUnsubscribe = null;
+  }
+
+  setAppVisibility(false);
+  updateSessionUi(null);
+}
+
+function bindAuthStateListener() {
+  if (!auth) {
+    return;
+  }
+
+  auth.onAuthStateChanged(async (user) => {
+    if (!user) {
+      resetAuthorizedSession();
+      setAuthGate('🔐 Acceso privado', 'Inicia sesión con el usuario compartido para acceder al viaje.');
+      return;
+    }
+
+    isAuthorizedUser = true;
+    setAppVisibility(true);
+    updateSessionUi(user);
+    setAuthGate('✅ Acceso concedido', `Sesión iniciada como ${user.email || 'usuario compartido'}.`);
+    await bootstrapAuthorizedSession();
+  });
+}
+
 async function init() {
   populatePaidBySelect();
   populateFilterSelect();
   bindPasswordGate();
+  bindAuthActions();
 
   await initRemoteSync();
 
-  if (!SHARED_PASSWORD) {
-    setAuthGate('⚠️ Falta configuración', 'Configura window.TRIP_SHARED_PASSWORD en index.html.');
+  if (!auth) {
+    setAuthGate('⚠️ Falta configuración', 'Activa Email/Contraseña en Firebase Authentication.');
     setAppVisibility(false);
     return;
   }
 
-  setAuthGate('🔐 Acceso privado', 'Introduce la contraseña compartida para acceder al viaje.');
+  bindAuthStateListener();
+  setAuthGate('🔐 Acceso privado', 'Inicia sesión con el usuario compartido para acceder al viaje.');
   setAppVisibility(false);
-
-  if (sessionStorage.getItem(SHARED_PASSWORD_KEY) === '1') {
-    isAuthorizedUser = true;
-    setAppVisibility(true);
-    await bootstrapAuthorizedSession();
-  }
 }
 
 init();

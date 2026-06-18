@@ -19,6 +19,8 @@
         </div>
       </div>
       <div class="header-actions">
+        <span id="currentUserPill" class="user-email-pill" hidden></span>
+        <button id="signOutBtn" class="btn btn-outline" hidden>Cerrar sesión</button>
         <button id="exportBtn" class="btn btn-outline">📤 Exportar</button>
         <button id="importBtn" class="btn btn-outline">📥 Importar</button>
         <input type="file" id="importFile" accept=".json" hidden>
@@ -37,9 +39,10 @@
   <section id="authGate" class="auth-gate">
     <div class="auth-gate-card">
       <h2 id="authGateTitle">🔐 Acceso privado</h2>
-      <p id="authGateMessage">Introduce la contraseña compartida para acceder al viaje.</p>
+      <p id="authGateMessage">Inicia sesión con el usuario compartido para acceder al viaje.</p>
       <div class="auth-password-row">
-        <input type="password" id="sharedPasswordInput" class="auth-password-input" placeholder="Contraseña compartida" autocomplete="off">
+        <input type="email" id="sharedUserEmailInput" class="auth-password-input" placeholder="Email" autocomplete="username">
+        <input type="password" id="sharedUserPasswordInput" class="auth-password-input" placeholder="Contraseña" autocomplete="current-password">
         <button id="unlockAppBtn" class="btn btn-primary">Entrar</button>
       </div>
     </div>
@@ -417,6 +420,7 @@
   <div id="toast" class="toast" hidden></div>
 
   <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore-compat.js"></script>
   <script>
     // Rellena esta configuración desde Firebase Console para activar sincronización en tiempo real.
@@ -431,9 +435,6 @@
 
     // Usa el mismo identificador de viaje en todos los dispositivos.
     window.TRIP_ID = 'china-2026';
-
-    // Contraseña compartida para desbloquear la interfaz de la app.
-    window.TRIP_SHARED_PASSWORD = 'Chinchonchin2026';
   </script>
   <script src="js/app.js"></script>
 </body>
