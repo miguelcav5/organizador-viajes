@@ -171,6 +171,21 @@ header h1 {
   margin-bottom: 1rem;
 }
 
+.auth-password-row {
+  display: flex;
+  gap: .5rem;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.auth-password-input {
+  width: min(340px, 100%);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: .55rem .7rem;
+  font-size: .95rem;
+}
+
 .tab-content { display: none; }
 .tab-content.active { display: block; }
 

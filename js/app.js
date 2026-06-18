@@ -47,7 +47,6 @@ let state = {
 };
 
 let db = null;
-let auth = null;
 let tripDocRef = null;
 let remoteSyncEnabled = false;
 let remoteUnsubscribe = null;
@@ -55,11 +54,8 @@ let isApplyingRemoteState = false;
 let isAuthorizedUser = false;
 let initializedForUid = null;
 
-const ALLOWED_EMAILS = new Set(
-  (window.TRIP_ALLOWED_EMAILS || [])
-    .map((email) => String(email || '').trim().toLowerCase())
-    .filter(Boolean)
-);
+const SHARED_PASSWORD_KEY = 'trip-shared-password-unlocked-v1';
+const SHARED_PASSWORD = String(window.TRIP_SHARED_PASSWORD || '').trim();
 
 function defaultState() {
   return { itinerary: [], flights: [], activities: [], expenses: [] };
@@ -67,19 +63,6 @@ function defaultState() {
 
 function normalizeState(raw) {
   return Object.assign(defaultState(), raw || {});
-}
-
-function normalizeEmail(value) {
-  return String(value || '').trim().toLowerCase();
-}
-
-function isUserAllowed(user) {
-  if (!user || !user.email) return false;
-  const email = normalizeEmail(user.email);
-  if (ALLOWED_EMAILS.size === 0) {
-    return false;
-  }
-  return ALLOWED_EMAILS.has(email);
 }
 
 function setAuthGate(title, message) {
@@ -110,106 +93,44 @@ function setAppVisibility(visible) {
   if (importBtn) importBtn.disabled = !visible;
 }
 
-function updateAuthHeader(user) {
-  const emailEl = document.getElementById('userEmail');
-  const loginBtn = document.getElementById('loginBtn');
-  const logoutBtn = document.getElementById('logoutBtn');
-  const email = user && user.email ? user.email : 'Sin sesión';
+function unlockWithSharedPassword() {
+  const input = document.getElementById('sharedPasswordInput');
+  const entered = String(input?.value || '');
 
-  if (emailEl) {
-    emailEl.textContent = email;
-    emailEl.title = email;
+  if (!SHARED_PASSWORD) {
+    setAuthGate('⚠️ Falta configuración', 'Define window.TRIP_SHARED_PASSWORD en index.html para usar el acceso con contraseña.');
+    setAppVisibility(false);
+    return;
   }
 
-  if (loginBtn) loginBtn.toggleAttribute('hidden', !!user);
-  if (logoutBtn) logoutBtn.toggleAttribute('hidden', !user);
+  if (entered !== SHARED_PASSWORD) {
+    showToast('❌ Contraseña incorrecta');
+    return;
+  }
+
+  isAuthorizedUser = true;
+  sessionStorage.setItem(SHARED_PASSWORD_KEY, '1');
+  setAppVisibility(true);
+  bootstrapAuthorizedSession();
+  if (input) input.value = '';
+  showToast('✅ Acceso concedido');
 }
 
-function getSignInErrorMessage(err) {
-  const code = err && err.code ? err.code : '';
-  const host = window.location.hostname || 'este dominio';
+function bindPasswordGate() {
+  const btn = document.getElementById('unlockAppBtn');
+  const input = document.getElementById('sharedPasswordInput');
 
-  if (code === 'auth/unauthorized-domain') {
-    return `❌ Dominio no autorizado en Firebase Auth: ${host}`;
-  }
-  if (code === 'auth/operation-not-allowed') {
-    return '❌ Google Sign-In no está habilitado en Firebase Authentication.';
-  }
-  if (code === 'auth/popup-blocked') {
-    return '⚠️ El navegador bloqueó la ventana de acceso. Reintentando con redirección...';
-  }
-  if (code === 'auth/popup-closed-by-user') {
-    return '⚠️ Cerraste la ventana de Google antes de completar el acceso.';
-  }
-  if (code === 'auth/invalid-api-key' || code === 'auth/app-not-authorized') {
-    return '❌ Configuración de Firebase inválida. Revisa apiKey/authDomain/projectId.';
-  }
-  if (code === 'auth/network-request-failed') {
-    return '⚠️ Error de red al iniciar sesión. Revisa tu conexión.';
-  }
-  if (code === 'auth/cancelled-popup-request') {
-    return '⚠️ Se canceló la solicitud de acceso. Inténtalo de nuevo.';
+  if (btn) {
+    btn.addEventListener('click', unlockWithSharedPassword);
   }
 
-  return '❌ No se pudo iniciar sesión con Google.';
-}
-
-async function signInWithGoogle() {
-  if (!auth) return;
-  const provider = new firebase.auth.GoogleAuthProvider();
-  const isGithubPages = window.location.hostname.endsWith('github.io');
-  const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent || '');
-
-  try {
-    // En GitHub Pages y móvil, redirect suele ser mucho más estable que popup.
-    if (isGithubPages || isMobile) {
-      await auth.signInWithRedirect(provider);
-      return;
-    }
-
-    await auth.signInWithPopup(provider);
-  } catch (err) {
-    const fallbackToRedirectCodes = new Set([
-      'auth/popup-blocked',
-      'auth/popup-closed-by-user',
-      'auth/cancelled-popup-request',
-      'auth/web-storage-unsupported',
-      'auth/operation-not-supported-in-this-environment',
-    ]);
-
-    if (err && fallbackToRedirectCodes.has(err.code)) {
-      try {
-        await auth.signInWithRedirect(provider);
-        return;
-      } catch (redirectErr) {
-        console.error('Google redirect sign-in error:', redirectErr);
-        showToast(getSignInErrorMessage(redirectErr));
-        return;
+  if (input) {
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        unlockWithSharedPassword();
       }
-    }
-
-    console.error('Google sign-in error:', err);
-    showToast(getSignInErrorMessage(err));
-  }
-}
-
-async function processRedirectResult() {
-  if (!auth) return;
-  try {
-    await auth.getRedirectResult();
-  } catch (err) {
-    console.error('Redirect sign-in error:', err);
-    showToast(getSignInErrorMessage(err));
-  }
-}
-
-async function signOutCurrentUser() {
-  if (!auth) return;
-  try {
-    await auth.signOut();
-  } catch (err) {
-    console.error('Sign-out error:', err);
-    showToast('⚠️ No se pudo cerrar la sesión.');
+    });
   }
 }
 
@@ -276,7 +197,6 @@ async function initRemoteSync() {
     if (!firebase.apps.length) {
       firebase.initializeApp(config);
     }
-    auth = firebase.auth();
     db = firebase.firestore();
     tripDocRef = db.collection('trips').doc(tripId);
     remoteSyncEnabled = true;
@@ -1123,8 +1043,8 @@ function renderAll() {
 
 // ─── INIT ────────────────────────────────────────────────────────────────────
 
-async function bootstrapAuthorizedSession(user) {
-  if (initializedForUid === user.uid) {
+async function bootstrapAuthorizedSession() {
+  if (initializedForUid === 'shared-password') {
     return;
   }
 
@@ -1133,8 +1053,7 @@ async function bootstrapAuthorizedSession(user) {
     remoteUnsubscribe = null;
   }
 
-  initializedForUid = user.uid;
-  await initRemoteSync();
+  initializedForUid = 'shared-password';
   await loadState();
   renderAll();
 
@@ -1144,84 +1063,27 @@ async function bootstrapAuthorizedSession(user) {
   }
 }
 
-function bindAuthButtons() {
-  const loginBtn = document.getElementById('loginBtn');
-  const loginGateBtn = document.getElementById('loginGateBtn');
-  const logoutBtn = document.getElementById('logoutBtn');
-
-  if (loginBtn) {
-    loginBtn.addEventListener('click', signInWithGoogle);
-  }
-  if (loginGateBtn) {
-    loginGateBtn.addEventListener('click', signInWithGoogle);
-  }
-  if (logoutBtn) {
-    logoutBtn.addEventListener('click', signOutCurrentUser);
-  }
-}
-
-function bindAuthStateListener() {
-  if (!auth || !auth.onAuthStateChanged) {
-    setAuthGate('⚠️ Error de configuración', 'No se pudo iniciar Firebase Auth. Revisa la configuración de Firebase en index.html.');
-    setAppVisibility(false);
-    return;
-  }
-
-  auth.onAuthStateChanged(async (user) => {
-    updateAuthHeader(user);
-
-    if (!user) {
-      isAuthorizedUser = false;
-      initializedForUid = null;
-      if (remoteUnsubscribe) {
-        remoteUnsubscribe();
-        remoteUnsubscribe = null;
-      }
-      setAuthGate('🔐 Acceso privado', 'Inicia sesión con una cuenta de Google autorizada para acceder al viaje.');
-      setAppVisibility(false);
-      return;
-    }
-
-    if (!isUserAllowed(user)) {
-      isAuthorizedUser = false;
-      initializedForUid = null;
-      if (remoteUnsubscribe) {
-        remoteUnsubscribe();
-        remoteUnsubscribe = null;
-      }
-      setAuthGate('⛔ Cuenta no autorizada', `La cuenta ${user.email} no está permitida. Cierra sesión e inicia con un email autorizado.`);
-      setAppVisibility(false);
-      return;
-    }
-
-    isAuthorizedUser = true;
-    setAppVisibility(true);
-    await bootstrapAuthorizedSession(user);
-  });
-}
-
 async function init() {
   populatePaidBySelect();
   populateFilterSelect();
-  bindAuthButtons();
+  bindPasswordGate();
 
   await initRemoteSync();
 
-  if (!auth) {
-    setAuthGate('⚠️ Error de configuración', 'No se pudo iniciar Firebase Auth. Revisa la configuración de Firebase en index.html.');
+  if (!SHARED_PASSWORD) {
+    setAuthGate('⚠️ Falta configuración', 'Configura window.TRIP_SHARED_PASSWORD en index.html.');
     setAppVisibility(false);
     return;
   }
 
-  if (ALLOWED_EMAILS.size === 0) {
-    setAuthGate('⚠️ Falta configuración', 'Añade emails permitidos en window.TRIP_ALLOWED_EMAILS dentro de index.html.');
-    setAppVisibility(false);
-    return;
+  setAuthGate('🔐 Acceso privado', 'Introduce la contraseña compartida para acceder al viaje.');
+  setAppVisibility(false);
+
+  if (sessionStorage.getItem(SHARED_PASSWORD_KEY) === '1') {
+    isAuthorizedUser = true;
+    setAppVisibility(true);
+    await bootstrapAuthorizedSession();
   }
-
-  await processRedirectResult();
-
-  bindAuthStateListener();
 }
 
 init();

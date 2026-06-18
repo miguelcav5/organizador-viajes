@@ -1,16 +1,15 @@
 # organizador-viajes
 
-Organizador de viaje con sincronización en tiempo real entre dispositivos usando Firebase Firestore y acceso con Google Sign-In.
+Organizador de viaje con sincronización en tiempo real entre dispositivos usando Firebase Firestore y acceso por contraseña compartida.
 
 ## Activar sincronización en tiempo real
 
 1. Crea un proyecto en Firebase Console.
 2. Añade una app Web al proyecto y copia la configuración de Firebase.
 3. Activa Firestore Database.
-4. En Firebase Console, ve a Authentication > Método de acceso y habilita Google.
-5. Edita [index.html](index.html) y completa los campos de `window.TRIP_FIREBASE_CONFIG`.
-6. En [index.html](index.html), deja el mismo valor de `window.TRIP_ID` en todos los dispositivos para compartir el mismo viaje.
-7. En [index.html](index.html), rellena `window.TRIP_ALLOWED_EMAILS` con los correos de tu grupo.
+4. Edita [index.html](index.html) y completa los campos de `window.TRIP_FIREBASE_CONFIG`.
+5. En [index.html](index.html), deja el mismo valor de `window.TRIP_ID` en todos los dispositivos para compartir el mismo viaje.
+6. En [index.html](index.html), define `window.TRIP_SHARED_PASSWORD` con una clave compartida por el grupo.
 
 Ejemplo de configuración:
 
@@ -27,38 +26,20 @@ Ejemplo de configuración:
 
 	window.TRIP_ID = 'china-2026';
 
-	window.TRIP_ALLOWED_EMAILS = [
-		'tu-email@gmail.com',
-		'amigo1@gmail.com',
-		'amigo2@gmail.com'
-	];
+	window.TRIP_SHARED_PASSWORD = 'cambia-esta-clave';
 </script>
 ```
 
-## Reglas de Firestore para copiar/pegar (recomendadas)
+## Reglas de Firestore para este modo (sin login)
 
-Sustituye los emails por tu grupo y publícalas en la pestaña Reglas de Firestore.
+Para que la sincronización funcione sin autenticación, las reglas deben permitir acceso abierto al documento del viaje.
 
 ```txt
 rules_version = '2';
 service cloud.firestore {
 	match /databases/{database}/documents {
-		function isAllowedEmail() {
-			return request.auth != null
-				&& request.auth.token.email != null
-				&& request.auth.token.email in [
-					'tu-email@gmail.com',
-					'amigo1@gmail.com',
-					'amigo2@gmail.com'
-				];
-		}
-
 		match /trips/{tripId} {
-			allow read, write: if isAllowedEmail();
-		}
-
-		match /{document=**} {
-			allow read, write: if false;
+			allow read, write: if true;
 		}
 	}
 }
@@ -66,11 +47,10 @@ service cloud.firestore {
 
 ## Comportamiento de acceso
 
-- Si no inicias sesión, la app no muestra el contenido.
-- Si inicias sesión con un correo no permitido, no tendrás acceso.
-- Si el correo está permitido, se habilita la app y sincroniza en tiempo real.
+- Si no introduces la contraseña compartida, la app no muestra el contenido.
+- Si la contraseña es correcta, se habilita la app y sincroniza en tiempo real.
 
 ## Nota de seguridad
 
-- No uses reglas abiertas (`allow read, write: if true`) en producción.
-- Mantén la lista de emails permitidos actualizada tanto en reglas como en `window.TRIP_ALLOWED_EMAILS`.
+- Este modo es sencillo pero débil: la contraseña solo se valida en el navegador.
+- Si necesitas seguridad real, usa autenticación de Firebase y reglas cerradas por usuario.

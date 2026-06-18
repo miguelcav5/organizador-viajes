@@ -19,9 +19,6 @@
         </div>
       </div>
       <div class="header-actions">
-        <span id="userEmail" class="user-email-pill" title="Cuenta actual">Sin sesión</span>
-        <button id="loginBtn" class="btn btn-outline">🔐 Entrar con Google</button>
-        <button id="logoutBtn" class="btn btn-outline" hidden>Salir</button>
         <button id="exportBtn" class="btn btn-outline">📤 Exportar</button>
         <button id="importBtn" class="btn btn-outline">📥 Importar</button>
         <input type="file" id="importFile" accept=".json" hidden>
@@ -40,8 +37,11 @@
   <section id="authGate" class="auth-gate">
     <div class="auth-gate-card">
       <h2 id="authGateTitle">🔐 Acceso privado</h2>
-      <p id="authGateMessage">Inicia sesión con Google para acceder al organizador del viaje.</p>
-      <button id="loginGateBtn" class="btn btn-primary">Entrar con Google</button>
+      <p id="authGateMessage">Introduce la contraseña compartida para acceder al viaje.</p>
+      <div class="auth-password-row">
+        <input type="password" id="sharedPasswordInput" class="auth-password-input" placeholder="Contraseña compartida" autocomplete="off">
+        <button id="unlockAppBtn" class="btn btn-primary">Entrar</button>
+      </div>
     </div>
   </section>
 
@@ -409,7 +409,6 @@
   <div id="toast" class="toast" hidden></div>
 
   <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore-compat.js"></script>
   <script>
     // Rellena esta configuración desde Firebase Console para activar sincronización en tiempo real.
@@ -425,11 +424,8 @@
     // Usa el mismo identificador de viaje en todos los dispositivos.
     window.TRIP_ID = 'china-2026';
 
-    // Lista de emails autorizados para entrar en la app.
-    window.TRIP_ALLOWED_EMAILS = [
-      'miguelcastroalonso85@gmail.com',
-      'amigo1@gmail.com',
-    ];
+    // Contraseña compartida para desbloquear la interfaz de la app.
+    window.TRIP_SHARED_PASSWORD = 'cambia-esta-clave';
   </script>
   <script src="js/app.js"></script>
 </body>
