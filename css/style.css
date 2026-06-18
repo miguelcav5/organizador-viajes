@@ -529,6 +529,65 @@ header h1 {
   text-align: center;
 }
 
+.settlements-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+  padding: 1rem 1.25rem;
+  margin-bottom: 1.5rem;
+}
+
+.settlements-card h3 {
+  font-size: 1rem;
+  font-weight: 700;
+  margin-bottom: .85rem;
+}
+
+.settlement-list {
+  display: flex;
+  flex-direction: column;
+  gap: .5rem;
+}
+
+.settlement-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: .75rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: .6rem .75rem;
+  background: #fff;
+}
+
+.settlement-flow {
+  display: flex;
+  align-items: center;
+  gap: .45rem;
+  font-size: .9rem;
+  flex-wrap: wrap;
+}
+
+.settlement-from { color: var(--danger); font-weight: 700; }
+.settlement-to { color: var(--success); font-weight: 700; }
+.settlement-arrow { color: var(--text-muted); font-weight: 700; }
+
+.settlement-amount {
+  font-size: .9rem;
+  font-weight: 800;
+  color: var(--primary);
+  white-space: nowrap;
+}
+
+.settlement-empty {
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-sm);
+  padding: .65rem .75rem;
+  color: var(--text-muted);
+  font-size: .88rem;
+}
+
 /* ---------- Expense Card ---------- */
 .expense-card {
   background: var(--bg-card);

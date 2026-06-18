@@ -822,6 +822,78 @@ function computeExpenseSummary() {
   return summary;
 }
 
+function computeSettlements(summary) {
+  const creditors = [];
+  const debtors = [];
+
+  PEOPLE.forEach((person) => {
+    const row = summary[person] || { paid: 0, owed: 0 };
+    const balanceCents = Math.round((row.paid - row.owed) * 100);
+
+    if (balanceCents > 0) {
+      creditors.push({ person, amountCents: balanceCents });
+    } else if (balanceCents < 0) {
+      debtors.push({ person, amountCents: -balanceCents });
+    }
+  });
+
+  creditors.sort((a, b) => b.amountCents - a.amountCents);
+  debtors.sort((a, b) => b.amountCents - a.amountCents);
+
+  const settlements = [];
+  let i = 0;
+  let j = 0;
+
+  while (i < debtors.length && j < creditors.length) {
+    const debtor = debtors[i];
+    const creditor = creditors[j];
+    const amountCents = Math.min(debtor.amountCents, creditor.amountCents);
+
+    if (amountCents > 0) {
+      settlements.push({
+        from: debtor.person,
+        to: creditor.person,
+        amount: amountCents / 100,
+      });
+    }
+
+    debtor.amountCents -= amountCents;
+    creditor.amountCents -= amountCents;
+
+    if (debtor.amountCents === 0) i += 1;
+    if (creditor.amountCents === 0) j += 1;
+  }
+
+  return settlements;
+}
+
+function renderSettlements(summary) {
+  const list = document.getElementById('settlementsList');
+  if (!list) return;
+
+  if (state.expenses.length === 0) {
+    list.innerHTML = '<div class="settlement-empty">Añade gastos para ver sugerencias de liquidación.</div>';
+    return;
+  }
+
+  const settlements = computeSettlements(summary);
+  if (settlements.length === 0) {
+    list.innerHTML = '<div class="settlement-empty">Todo está equilibrado. No hace falta realizar transferencias.</div>';
+    return;
+  }
+
+  list.innerHTML = settlements.map((s) => `
+    <div class="settlement-item">
+      <div class="settlement-flow">
+        <span class="settlement-from">${esc(s.from)}</span>
+        <span class="settlement-arrow">→</span>
+        <span class="settlement-to">${esc(s.to)}</span>
+      </div>
+      <div class="settlement-amount">${esc(formatAmount(s.amount))}</div>
+    </div>
+  `).join('');
+}
+
 function renderExpenseSummary() {
   const summary = computeExpenseSummary();
   const tbody = document.getElementById('summaryTableBody');
@@ -847,6 +919,7 @@ function renderExpenseSummary() {
 
   document.getElementById('summaryTotalPaid').textContent = formatAmount(totalPaid);
   document.getElementById('summaryTotalOwed').textContent = formatAmount(totalOwed);
+  renderSettlements(summary);
 }
 
 function renderExpenses() {
